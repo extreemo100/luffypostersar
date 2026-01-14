@@ -1,10 +1,25 @@
 <html>
   <head>
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="apple-mobile-web-app-capable" content="yes">    
-    <script src="https://aframe.io/releases/1.3.0/aframe.min.js"></script>
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <title>AR Video Experience</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/aframe/1.3.0/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.1/dist/mindar-image-aframe.prod.js"></script>
     <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      
+      body {
+        width: 100%;
+        height: 100vh;
+        overflow: hidden;
+      }
+
       .button-container {
         position: fixed;
         top: 10px;
@@ -29,48 +44,187 @@
       .button:hover {
         background-color: #333;
       }
+      
+      #debug-info {
+        position: fixed;
+        bottom: 10px;
+        right: 10px;
+        color: white;
+        background: rgba(0, 0, 0, 0.8);
+        padding: 15px;
+        border-radius: 5px;
+        font-size: 12px;
+        max-width: 300px;
+        z-index: 10;
+        font-family: monospace;
+        line-height: 1.5;
+      }
+
+      #loading {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: rgba(0, 0, 0, 0.9);
+        color: white;
+        padding: 30px;
+        border-radius: 10px;
+        z-index: 100;
+        text-align: center;
+        font-family: Arial, sans-serif;
+      }
+
+      #loading.hidden {
+        display: none;
+      }
     </style>
   </head>
-  <script>
-    AFRAME.registerComponent("video-controller", {
-      init: function () {
-        const target = document.getElementById("target");
-        const btn = document.getElementById("unmute-button");
-        const video = document.getElementById("myVideo");
-
-        target.addEventListener("targetFound", event => {
-          console.log("target found");
-          this.found = true;
-          video.play();
-        });
-
-        target.addEventListener("targetLost", event => {
-          console.log("target lost");
-          this.found = false;
-          video.pause();
-        });
-
-        btn.addEventListener("click", event => {
-          console.log("btn click");
-          if (this.found) video.muted = false;
-        });
-      }
-    });
-  </script>
   <body>
+    <div id="loading">
+      <p>Loading AR Experience...</p>
+      <p style="font-size: 12px; margin-top: 10px; color: #aaa;">Please allow camera access</p>
+    </div>
+
     <div class="button-container">
       <button id="unmute-button" class="button">Unmute 🔊</button>
-      <button id="store-button" class="button" onclick="window.location.href='https://theradical.store/'">Visit The Radical Store</button>
+      <button id="store-button" class="button" onclick="window.location.href='https://theradical.store/'">Visit Store</button>
     </div>
+
+    <div id="debug-info">Initializing...</div>
     
-    <a-scene mindar-image="imageTargetSrc: luffy.mind" color-space="sRGB" renderer="colorManagement: true, physicallyCorrectLights" vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false">
+    <a-scene id="arScene" mindar-image="imageTargetSrc: ./luffy.mind; maxTrack: 1" color-space="sRGB" renderer="colorManagement: true, physicallyCorrectLights" vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false">
       <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
       <a-assets>
-        <video id="myVideo" src="Boutyevo1_fzahhg.mp4" muted preload loop></video>
+        <video id="myVideo" playsinline webkit-playsinline src="./Boutyevo1_fzahhg.mp4" muted preload="auto" loop crossorigin="anonymous"></video>
       </a-assets>
       <a-entity mindar-image-target="targetIndex: 0" id="target">
-        <a-plane class="clickable" material="src: #myVideo; " width="1" height="1.5" video-controller></a-plane>
+        <a-plane material="src: #myVideo;" width="1" height="1.5" video-controller></a-plane>
       </a-entity>
     </a-scene>
+
+    <script>
+      // Wait for A-Frame to be ready
+      function initAR() {
+        console.log("A-Frame version:", AFRAME?.version);
+        
+        AFRAME.registerComponent("video-controller", {
+          init: function () {
+            const target = document.getElementById("target");
+            const btn = document.getElementById("unmute-button");
+            const video = document.getElementById("myVideo");
+            const debugInfo = document.getElementById("debug-info");
+            const loadingScreen = document.getElementById("loading");
+            const scene = document.getElementById("arScene");
+
+            let isTargetFound = false;
+
+            function updateDebug(msg) {
+              console.log("[AR]", msg);
+              debugInfo.innerHTML += msg + "<br>";
+              // Keep only last 10 lines
+              const lines = debugInfo.innerHTML.split("<br>");
+              if (lines.length > 10) {
+                debugInfo.innerHTML = lines.slice(-10).join("<br>");
+              }
+            }
+
+            updateDebug("✓ Video Controller Initialized");
+
+            if (!video) {
+              updateDebug("❌ ERROR: Video element not found");
+              return;
+            }
+
+            if (!target) {
+              updateDebug("❌ ERROR: Target element not found");
+              return;
+            }
+
+            // Hide loading screen when scene initializes
+            scene.addEventListener("loaded", () => {
+              loadingScreen.classList.add("hidden");
+              updateDebug("✓ AR Scene Loaded");
+            });
+
+            // Target found
+            target.addEventListener("targetFound", event => {
+              updateDebug("✓ Target Found!");
+              isTargetFound = true;
+              
+              video.play().catch(err => {
+                updateDebug("❌ Play error: " + err.message);
+              });
+            });
+
+            // Target lost
+            target.addEventListener("targetLost", event => {
+              updateDebug("✗ Target Lost");
+              isTargetFound = false;
+              video.pause();
+            });
+
+            // Unmute button
+            btn.addEventListener("click", event => {
+              if (isTargetFound) {
+                video.muted = false;
+                updateDebug("✓ Video Unmuted");
+              } else {
+                updateDebug("⚠ Point camera at the Luffy image");
+              }
+            });
+
+            // Video event listeners
+            video.addEventListener("loadstart", () => {
+              updateDebug("⏳ Video loading...");
+            });
+
+            video.addEventListener("canplay", () => {
+              updateDebug("✓ Video ready to play");
+            });
+
+            video.addEventListener("play", () => {
+              updateDebug("▶ Playing video");
+            });
+
+            video.addEventListener("pause", () => {
+              updateDebug("⏸ Paused video");
+            });
+
+            video.addEventListener("error", (e) => {
+              updateDebug("❌ Video error: " + (e.target.error?.message || "Unknown error"));
+            });
+
+            updateDebug("Ready! Point at Luffy image");
+          }
+        });
+      }
+
+      // Check if AFRAME is loaded
+      if (window.AFRAME) {
+        initAR();
+      } else {
+        // Wait for A-Frame to load
+        document.addEventListener("DOMContentLoaded", function() {
+          setTimeout(() => {
+            if (window.AFRAME) {
+              initAR();
+            } else {
+              console.error("A-Frame failed to load");
+              document.getElementById("debug-info").textContent = "❌ Failed to load A-Frame library";
+            }
+          }, 2000);
+        });
+      }
+
+      // Also listen for a-scene loaded event
+      document.addEventListener("DOMContentLoaded", function() {
+        const scene = document.getElementById("arScene");
+        if (scene) {
+          scene.addEventListener("loaded", function() {
+            console.log("A-Scene loaded");
+          });
+        }
+      });
+    </script>
   </body>
 </html>
