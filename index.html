@@ -1,24 +1,10 @@
 <html>
   <head>
-    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <title>AR Video Experience</title>
+    <meta name="apple-mobile-web-app-capable" content="yes">    
+    <script src="https://aframe.io/releases/1.3.0/aframe.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/aframe@1.3.0/dist/aframe-master.min.js"></script>
     <style>
-      * {
-        margin: 0;
-        padding: 0;
-        box-sizing: border-box;
-      }
-      
-      body {
-        width: 100%;
-        height: 100vh;
-        overflow: hidden;
-        font-family: Arial, sans-serif;
-      }
-
       .button-container {
         position: fixed;
         top: 10px;
@@ -43,328 +29,48 @@
       .button:hover {
         background-color: #333;
       }
-      
-      #debug-info {
-        position: fixed;
-        bottom: 10px;
-        right: 10px;
-        color: white;
-        background: rgba(0, 0, 0, 0.9);
-        padding: 15px;
-        border-radius: 5px;
-        font-size: 12px;
-        max-width: 350px;
-        z-index: 10;
-        font-family: monospace;
-        line-height: 1.6;
-        max-height: 400px;
-        overflow-y: auto;
-      }
-
-      #loading {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: rgba(0, 0, 0, 0.95);
-        color: white;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
-        z-index: 100;
-        text-align: center;
-      }
-
-      #loading.hidden {
-        display: none;
-      }
-
-      #loading p {
-        margin: 10px 0;
-      }
-
-      .loading-spinner {
-        border: 4px solid rgba(255, 255, 255, 0.3);
-        border-top: 4px solid white;
-        border-radius: 50%;
-        width: 40px;
-        height: 40px;
-        animation: spin 1s linear infinite;
-        margin: 20px 0;
-      }
-
-      @keyframes spin {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
-      }
-
-      .error-message {
-        color: #ff6b6b;
-        background: rgba(255, 107, 107, 0.1);
-        padding: 15px;
-        border-radius: 5px;
-        margin-top: 20px;
-        max-width: 400px;
-      }
     </style>
   </head>
-  <body>
-    <div id="loading">
-      <p style="font-size: 18px; font-weight: bold;">Loading AR Experience</p>
-      <div class="loading-spinner"></div>
-      <p style="font-size: 14px; color: #aaa;">Please allow camera access</p>
-      <div id="loading-status" style="font-size: 12px; color: #ccc; margin-top: 20px;"></div>
-    </div>
+  <script>
+    AFRAME.registerComponent("video-controller", {
+      init: function () {
+        const target = document.getElementById("target");
+        const btn = document.getElementById("unmute-button");
+        const video = document.getElementById("myVideo");
 
+        target.addEventListener("targetFound", event => {
+          console.log("target found");
+          this.found = true;
+          video.play();
+        });
+
+        target.addEventListener("targetLost", event => {
+          console.log("target lost");
+          this.found = false;
+          video.pause();
+        });
+
+        btn.addEventListener("click", event => {
+          console.log("btn click");
+          if (this.found) video.muted = false;
+        });
+      }
+    });
+  </script>
+  <body>
     <div class="button-container">
       <button id="unmute-button" class="button">Unmute 🔊</button>
-      <button id="store-button" class="button" onclick="window.location.href='https://theradical.store/'">Visit Store</button>
+      <button id="store-button" class="button" onclick="window.location.href='https://theradical.store/'">Visit The Radical Store</button>
     </div>
-
-    <div id="debug-info">Initializing...</div>
     
-    <!-- Placeholder for A-Scene (will be added dynamically) -->
-    <div id="scene-container"></div>
-
-    <script>
-      const debug = {
-        logs: [],
-        log: function(msg) {
-          const timestamp = new Date().toLocaleTimeString();
-          const logMsg = `[${timestamp}] ${msg}`;
-          this.logs.push(logMsg);
-          console.log(logMsg);
-          
-          const debugEl = document.getElementById("debug-info");
-          if (debugEl) {
-            debugEl.innerHTML = this.logs.slice(-15).join("<br>");
-          }
-        }
-      };
-
-      const loadingStatus = document.getElementById("loading-status");
-      
-      function updateLoadingStatus(msg) {
-        debug.log(msg);
-        if (loadingStatus) {
-          loadingStatus.innerHTML = msg;
-        }
-      }
-
-      // Array of CDN sources to try
-      const aframeSources = [
-        "https://cdnjs.cloudflare.com/ajax/libs/aframe/1.3.0/aframe.min.js",
-        "https://cdn.jsdelivr.net/npm/aframe@1.3.0/dist/aframe-master.min.js",
-        "https://unpkg.com/aframe@1.3.0/dist/aframe-master.min.js",
-        "https://aframe.io/releases/1.3.0/aframe.min.js"
-      ];
-
-      const mindarSources = [
-        "https://cdn.jsdelivr.net/npm/mind-ar@1.2.1/dist/mindar-image-aframe.prod.js",
-        "https://unpkg.com/mind-ar@1.2.1/dist/mindar-image-aframe.prod.js"
-      ];
-
-      let aframeLoaded = false;
-      let mindarLoaded = false;
-
-      function loadScript(src) {
-        return new Promise((resolve, reject) => {
-          const script = document.createElement("script");
-          script.src = src;
-          script.async = true;
-          script.onload = () => resolve();
-          script.onerror = () => reject(new Error(`Failed to load: ${src}`));
-          document.head.appendChild(script);
-        });
-      }
-
-      async function loadAFrame() {
-        updateLoadingStatus("Loading A-Frame...");
-        
-        for (let src of aframeSources) {
-          try {
-            debug.log(`Attempting A-Frame: ${src}`);
-            await loadScript(src);
-            debug.log("✓ A-Frame loaded successfully");
-            aframeLoaded = true;
-            return true;
-          } catch (e) {
-            debug.log(`✗ Failed: ${src}`);
-          }
-        }
-        
-        return false;
-      }
-
-      async function loadMindAR() {
-        updateLoadingStatus("Loading MindAR...");
-        
-        for (let src of mindarSources) {
-          try {
-            debug.log(`Attempting MindAR: ${src}`);
-            await loadScript(src);
-            debug.log("✓ MindAR loaded successfully");
-            mindarLoaded = true;
-            return true;
-          } catch (e) {
-            debug.log(`✗ Failed: ${src}`);
-          }
-        }
-        
-        return false;
-      }
-
-      async function initializeAR() {
-        try {
-          updateLoadingStatus("Step 1/2: Loading A-Frame...");
-          const aframeOk = await loadAFrame();
-          
-          if (!aframeOk) {
-            throw new Error("Failed to load A-Frame from all sources");
-          }
-
-          // Give it a moment to register
-          await new Promise(r => setTimeout(r, 500));
-
-          if (!window.AFRAME) {
-            throw new Error("AFRAME not available after loading");
-          }
-
-          debug.log("✓ AFRAME is available");
-
-          updateLoadingStatus("Step 2/2: Loading MindAR...");
-          const mindarOk = await loadMindAR();
-          
-          if (!mindarOk) {
-            throw new Error("Failed to load MindAR from all sources");
-          }
-
-          debug.log("✓ All libraries loaded");
-
-          // Create the scene
-          createScene();
-          
-          updateLoadingStatus("Ready! Point at the Luffy image");
-          setTimeout(() => {
-            document.getElementById("loading").classList.add("hidden");
-          }, 1000);
-
-        } catch (error) {
-          debug.log(`❌ ERROR: ${error.message}`);
-          updateLoadingStatus(`<div class="error-message"><strong>Error:</strong> ${error.message}<br><br>Troubleshooting:<br>1. Check your internet connection<br>2. Try refreshing the page<br>3. Try a different browser</div>`);
-        }
-      }
-
-      function createScene() {
-        const AFRAME = window.AFRAME;
-
-        // Register the video controller component
-        AFRAME.registerComponent("video-controller", {
-          init: function () {
-            const target = document.getElementById("target");
-            const btn = document.getElementById("unmute-button");
-            const video = document.getElementById("myVideo");
-
-            let isTargetFound = false;
-
-            if (!video) {
-              debug.log("❌ Video element not found");
-              return;
-            }
-
-            if (!target) {
-              debug.log("❌ Target element not found");
-              return;
-            }
-
-            debug.log("✓ Video Controller ready");
-
-            target.addEventListener("targetFound", () => {
-              debug.log("✓ TARGET FOUND - Playing video");
-              isTargetFound = true;
-              
-              video.play().catch(err => {
-                debug.log("⚠ Play error: " + err.message);
-              });
-            });
-
-            target.addEventListener("targetLost", () => {
-              debug.log("✗ Target lost");
-              isTargetFound = false;
-              video.pause();
-            });
-
-            btn.addEventListener("click", () => {
-              if (isTargetFound) {
-                video.muted = false;
-                debug.log("✓ Unmuted");
-              } else {
-                debug.log("⚠ Point camera at image to unmute");
-              }
-            });
-
-            video.addEventListener("play", () => {
-              debug.log("▶ Video playing");
-            });
-
-            video.addEventListener("error", (e) => {
-              debug.log("❌ Video error: " + (e.target.error?.message || "Unknown"));
-            });
-          }
-        });
-
-        // Create the A-Scene HTML
-        const sceneHTML = `
-          <a-scene 
-            id="arScene"
-            mindar-image="imageTargetSrc: ./luffy.mind; maxTrack: 1" 
-            color-space="sRGB" 
-            renderer="colorManagement: true, physicallyCorrectLights" 
-            vr-mode-ui="enabled: false" 
-            device-orientation-permission-ui="enabled: false">
-            
-            <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
-            
-            <a-assets>
-              <video 
-                id="myVideo" 
-                playsinline 
-                webkit-playsinline 
-                src="./Boutyevo1_fzahhg.mp4" 
-                muted 
-                preload="auto" 
-                loop 
-                crossorigin="anonymous">
-              </video>
-            </a-assets>
-            
-            <a-entity mindar-image-target="targetIndex: 0" id="target">
-              <a-plane 
-                material="src: #myVideo;" 
-                width="1" 
-                height="1.5" 
-                video-controller>
-              </a-plane>
-            </a-entity>
-          </a-scene>
-        `;
-
-        const container = document.getElementById("scene-container");
-        container.innerHTML = sceneHTML;
-
-        debug.log("✓ Scene created and mounted");
-      }
-
-      // Start the initialization
-      debug.log("Starting AR initialization...");
-      
-      if (document.readyState === "loading") {
-        document.addEventListener("DOMContentLoaded", initializeAR);
-      } else {
-        initializeAR();
-      }
-    </script>
+    <a-scene mindar-image="imageTargetSrc: luffy.mind" color-space="sRGB" renderer="colorManagement: true, physicallyCorrectLights" vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false">
+      <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+      <a-assets>
+        <video id="myVideo" src="Boutyevo1_fzahhg.mp4" muted preload loop></video>
+      </a-assets>
+      <a-entity mindar-image-target="targetIndex: 0" id="target">
+        <a-plane class="clickable" material="src: #myVideo; " width="1" height="1.5" video-controller></a-plane>
+      </a-entity>
+    </a-scene>
   </body>
 </html>
